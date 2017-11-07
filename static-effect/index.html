@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TV Static Effect</title>
+</head>
+<style type="text/css">
+  body {
+    padding: 0;
+    margin: 0;
+  }
+  .old-tv {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+  }
+  #canvas {
+    position: absolute;
+    top: 150px;
+    left: 250px;
+  }
+
+</style>
+
+<body>
+  <img class="old-tv" src="old_tv.png">
+  <canvas id="canvas" width=300 height=300></canvas>
+</body>
+
+<script src="static-effect.js"></script>
+</html>
