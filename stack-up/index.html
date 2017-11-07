@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stack Up</title>
+</head>
+<body>
+<canvas id="c" width=400 height=400></canvas>
+</body>
+
+<script type="text/javascript">
+  var ctx, canvas, timeout, interval = 1000;
+  window.onload = function() {
+    canvas = document.getElementById('c');
+    ctx = canvas.getContext('2d');
+    timeout = setInterval(game, 1000 / interval);
+    document.addEventListener('keydown', onKeydown);
+  }
+
+  function onKeydown(e) {
+    console.log('interval', interval);
+    if(e.keyCode === 40) {
+      interval = interval + 10;
+      clearInterval(timeout);
+      timeout = setInterval(game, 1000 / interval);
+    } else if (e.keyCode === 38) {
+      interval = interval - 10;
+      clearInterval(timeout);
+      timeout = setInterval(game, 1000 / interval);
+    }
+  }
+
+  var gs = 4;
+  var tc = 100;
+  var box = [];
+  var trail = [];
+  var ave = 0;
+  var sum = 0;
+
+  function getNumber() {
+    return Math.random() * tc | 0;
+    // return gaussianRandom(0, tc);
+  }
+
+  function gaussianRand(g = 6) {
+    let rand = 0;
+
+    for (let i = 0; i < g; i++) {
+      rand += Math.random();
+    }
+
+    return rand / g;
+  }
+  function gaussianRandom(start, end) {
+    return Math.floor(start + gaussianRand(5) * (end - start + 1));
+  }
+
+  function game () {
+
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    num = getNumber();
+    box.push({ x: num, y: 0 });
+    sum++;
+    ctx.fillStyle = 'red';
+    for(let i = 0; i< box.length; i++) {
+      ctx.fillRect(box[i].x * gs, box[i].y++ * gs, gs -1, gs -1);
+      trail[box[i].x] = trail[box[i].x] || 0;
+      if(box[i].y === tc - trail[box[i].x]) {
+        trail[box[i].x]++;
+        // if(trail.every(function (t){ return t > 0 })) {
+        //   trail.forEach((a, i) => trail[i]--);
+        //   sum -= tc;
+        // }
+        if(trail[box[i].x] === tc) {
+          clearInterval(timeout);
+          finish()
+        }
+      }
+    }
+
+    for(let i = 0; i < tc; i++) {
+      trail[i] = trail[i] || 0;
+      for(let j = 1; j <= trail[i]; j++) {
+        ctx.fillRect(i * gs, (tc - j) * gs, gs -1, gs -1);
+      }
+    }
+
+    ave = sum / tc;
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height - ave);
+    ctx.lineTo(canvas.width, canvas.height - ave);
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    function finish() {
+      console.log('sum', sum);
+      console.log('ave', ave);
+      trail.sort((a, b) => a - b);
+      for(let i = 0; i < tc; i++) {
+        trail[i] = trail[i] || 0;
+        for(let j = 1; j <= trail[i]; j++) {
+          ctx.fillRect(i * gs, (tc - j) * gs, gs -1, gs -1);
+        }
+      }
+    }
+  }
+
+</script>
+</html>
