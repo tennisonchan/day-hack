@@ -1,108 +1,96 @@
-const colors = ['#ffe15b', '#f45e58', '#1d7aa2', '#6dc1b3', '#50514f'];
+class AudioVisualizer extends AnalyserNode {
+  constructor(audioCtx, mount, options = {}) {
+    super(audioCtx);
 
-class AudioVisualizer {
-  constructor(mount, options = {}) {
-    this.contexts = [];
     this.mount = mount;
-
     this.width = options.width || 500;
     this.height = options.height || 200;
-    this.fillStyle = options.fillStyle || 'rgba(255, 255, 255, 1)';
+    this.fillStyle = options.fillStyle || 'rgba(255, 255, 255, 0)';
     this.strokeStyle = options.strokeStyle || 'rgb(0, 0, 0)';
-    this.lineWidth = options.lineWidth || 3;
+    this.lineWidth = options.lineWidth || 2;
   }
 
-  createCanvas(channel) {
+  createCanvas() {
     let canvas = document.createElement('canvas');
     let ctx = canvas.getContext('2d');
-    this.mount.appendChild(canvas);
 
     canvas.width = this.width;
     canvas.height = this.height;
 
-    this.contexts[channel] = ctx;
+    ctx.lineWidth = this.lineWidth;
+    ctx.strokeStyle = this.strokeStyle;
 
     return ctx;
   }
 
-  visualize(audioBuffer) {
-    for(let i = 0; i < audioBuffer.numberOfChannels; i++) {
-      let dataArray = audioBuffer.getChannelData(i);
-      let ctx = this.createCanvas(i);
-      this.dynamicDraw(ctx, dataArray, audioBuffer.sampleRate, i);
-    }
-  }
+  renderTimeDomainData() {
+    let canvasCtx = this.createCanvas();
+    let { width, height } = canvasCtx.canvas;
+    let dataArray = new Float32Array(this.frequencyBinCount);
 
-  dynamicDraw(ctx, dataArray, sampleRate, channelIndex) {
-    let { width, height } = ctx.canvas;
-    let { fillStyle } = this;
-    let slice = sampleRate / 60;
-    let x = 0;
-    let i = 0;
+    this.mount.appendChild(canvasCtx.canvas);
 
-    ctx.lineWidth = this.lineWidth;
-    ctx.strokeStyle = colors[channelIndex];
-
-    requestAnimationFrame(draw);
+    requestAnimationFrame(draw.bind(this));
 
     function draw() {
-      for (let j = 0; j < slice; j++) {
-        let v = (dataArray[i++] + 1) / 2;
-        let y = v * height;
+      let x = 0;
+      let slice = dataArray.length;
+      this.getFloatTimeDomainData(dataArray);
 
-        if (j === 0) {
+      for (let i = 0; i < slice; i++) {
+        let v = dataArray[i] * 200;
+        let y = height / 2 + v;
+
+        if (i === 0) {
           x = 0;
-          ctx.fillStyle = fillStyle;
-          ctx.fillRect(0, 0, width, height);
-          ctx.beginPath();
+          canvasCtx.clearRect(0, 0, width, height);
+          canvasCtx.beginPath();
 
-          ctx.moveTo(x, y);
+          canvasCtx.moveTo(x, y);
         } else {
-          ctx.lineTo(x, y);
+          canvasCtx.lineTo(x, y);
         }
 
         x += width / slice;
       }
 
-      ctx.stroke();
+      canvasCtx.stroke();
 
-      if (dataArray[i] !== undefined) {
-        requestAnimationFrame(draw);
-      } else {
-        ctx.clearRect(0, 0, width, height);
-      }
+      requestAnimationFrame(draw.bind(this));
     }
   }
 
-  staticDraw(dataArray) {
-    let bufferLength = dataArray.length;
-    let { width, height, ctx } = this;
+  renderFrequencyData() {
+    let canvasCtx = this.createCanvas();
+    let { width, height } = canvasCtx.canvas;
+    let dataArray = new Float32Array(this.frequencyBinCount);
 
-    ctx.fillStyle = this.fillStyle;
-    ctx.fillRect(0, 0, width, height);
-    ctx.lineWidth = this.lineWidth;
-    ctx.strokeStyle = this.strokeStyle;
+    this.mount.appendChild(canvasCtx.canvas);
 
-    ctx.beginPath();
+    this.fftSize = 1024;
 
-    let sliceWidth = width * 1.0 / bufferLength;
-    let x = 0;
+    requestAnimationFrame(draw.bind(this));
 
-    for(let i = 0; i < bufferLength; i++) {
-      let v = (dataArray[i] + 1) / 2;
-      let y = v * height;
+    function draw() {
+      requestAnimationFrame(draw.bind(this));
+      this.getFloatFrequencyData(dataArray);
 
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
+      canvasCtx.fillStyle = 'rgb(0, 0, 0)';
+      canvasCtx.fillRect(0, 0, width, height);
+
+      let bufferLength = dataArray.length;
+      let barWidth = (width / bufferLength) * 2.5;
+      let x = 0;
+      for(let i = 0; i < bufferLength; i++) {
+        if (dataArray[i] === 0) return;
+        let barHeight = (dataArray[i] + 140) * 2;
+
+        canvasCtx.fillStyle = 'rgb(' + Math.floor(barHeight + 100) + ', 50, 50)';
+        canvasCtx.fillRect(x, height - barHeight / 2, barWidth, barHeight / 2);
+
+        x += barWidth + 1;
       }
-
-      x += sliceWidth;
     }
-
-    ctx.lineTo(width, height);
-    ctx.stroke();
   }
 }
 
@@ -131,9 +119,3 @@ class AudioVisualizer {
 // }
 
 // video.addEventListener('click', snapshot, false);
-
-// // Not showing vendor prefixes or code that works cross-browser.
-// navigator.getUserMedia({video: true}, function(stream) {
-//   video.src = window.URL.createObjectURL(stream);
-//   localMediaStream = stream;
-// }, errorCallback);
