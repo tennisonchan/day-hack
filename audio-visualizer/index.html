@@ -2,19 +2,29 @@
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <head>
-  <title></title>
+  <title>Audio Visualizer</title>
 </head>
-<style type="text/css">
-  canvas {
-    position: absolute;
-    background: transparent;
-  }
-</style>
 <body>
-  <div id="visualizer-mount"></div>
+  <div id="visualizer-mount">
+    <canvas id='visualizer'></canvas>
+    <div>
+      <input type="radio" id="wave"
+       name="analyser-type" value="wave">
+      <label for="wave">Wave</label>
+
+      <input type="radio" id="frequency"
+       name="analyser-type" value="frequency" checked="true">
+      <label for="frequency">Frequency</label>
+    </div>
+
+    <div>
+      <label for="input-check">Input</label>
+      <input id="input-check" type="checkbox" name="input-check" checked="true"/>
+    </div>
+  </div>
 </body>
 
-<script src="audio-visualizer.js"></script>
-<script src="image-audiolizer.js"></script>
+<script src="noise-gate-node.js"></script>
+<script src="visualizer.js"></script>
 <script src="app.js"></script>
 </html>

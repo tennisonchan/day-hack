@@ -1,121 +1,117 @@
-class AudioVisualizer extends AnalyserNode {
-  constructor(audioCtx, mount, options = {}) {
-    super(audioCtx);
+const WAVE = 0;
+const FREQUENCY = 1;
 
-    this.mount = mount;
-    this.width = options.width || 500;
-    this.height = options.height || 200;
-    this.fillStyle = options.fillStyle || 'rgba(255, 255, 255, 0)';
-    this.strokeStyle = options.strokeStyle || 'rgb(0, 0, 0)';
+window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame;
+
+class AudioVisualizer {
+  constructor(canvasId, options = {}) {
+    this.animationFrameId = null;
+    this.dataArray = null;
+
+    this.backgroundColor = options.backgroundColor || 'rgb(0, 0, 0)';
+    this.height = options.height || 300;
     this.lineWidth = options.lineWidth || 2;
-  }
+    this.strokeStyle = options.strokeStyle || 'rgb(0, 0, 0)';
+    this.type = options.type === 'frequency' ? FREQUENCY : WAVE;
+    this.width = options.width || 300;
 
-  createCanvas() {
-    let canvas = document.createElement('canvas');
-    let ctx = canvas.getContext('2d');
+    let canvas = document.getElementById(canvasId);
+    this.canvasCtx = canvas.getContext('2d');
 
     canvas.width = this.width;
     canvas.height = this.height;
-
-    ctx.lineWidth = this.lineWidth;
-    ctx.strokeStyle = this.strokeStyle;
-
-    return ctx;
   }
 
-  renderTimeDomainData() {
-    let canvasCtx = this.createCanvas();
-    let { width, height } = canvasCtx.canvas;
-    let dataArray = new Float32Array(this.frequencyBinCount);
+  initByteBuffer (frequencyBinCount) {
+    if (!this.dataArray || this.dataArray.length !== frequencyBinCount) {
+      return new Float32Array(frequencyBinCount);
+    }
 
-    this.mount.appendChild(canvasCtx.canvas);
+    return this.dataArray;
+  }
 
-    requestAnimationFrame(draw.bind(this));
+  connect (analyser) {
+    this.updateAnalyser(analyser);
+  }
 
-    function draw() {
-      let x = 0;
-      let slice = dataArray.length;
-      this.getFloatTimeDomainData(dataArray);
+  disconnect () {
+    cancelAnimationFrame(this.animationFrameId);
+  }
 
-      for (let i = 0; i < slice; i++) {
-        let v = dataArray[i] * 200;
-        let y = height / 2 + v;
+  updateAnalyser(analyser) {
+    this.render(analyser);
 
-        if (i === 0) {
-          x = 0;
-          canvasCtx.clearRect(0, 0, width, height);
-          canvasCtx.beginPath();
+    this.animationFrameId = window.requestAnimationFrame(this.updateAnalyser.bind(this, analyser));
+  }
 
-          canvasCtx.moveTo(x, y);
-        } else {
-          canvasCtx.lineTo(x, y);
-        }
+  setType(type) {
+    this.type = type === 'frequency' ? FREQUENCY : WAVE;
+  }
 
-        x += width / slice;
-      }
+  render (analyser) {
+    this.dataArray = this.initByteBuffer(analyser.frequencyBinCount);
 
-      canvasCtx.stroke();
-
-      requestAnimationFrame(draw.bind(this));
+    switch(this.type) {
+      case WAVE:
+        analyser.getFloatTimeDomainData(this.dataArray);
+        this.renderWave(this.dataArray, this.canvasCtx);
+        break;
+      case FREQUENCY:
+        analyser.getFloatFrequencyData(this.dataArray);
+        this.renderFrequency(this.dataArray, this.canvasCtx);
+        break;
     }
   }
 
-  renderFrequencyData() {
-    let canvasCtx = this.createCanvas();
-    let { width, height } = canvasCtx.canvas;
-    let dataArray = new Float32Array(this.frequencyBinCount);
+  renderWave(dataArray, canvasCtx) {
+    let bufferLength = dataArray.length;
+    let x = 0;
+    let { width, height, strokeStyle, lineWidth } = this;
 
-    this.mount.appendChild(canvasCtx.canvas);
+    canvasCtx.strokeStyle = strokeStyle;
+    canvasCtx.lineWidth = lineWidth;
 
-    this.fftSize = 1024;
+    for (let i = 0; i < bufferLength; i++) {
+      let y = height / 2 + dataArray[i] * 200;
 
-    requestAnimationFrame(draw.bind(this));
+      if (i === 0) {
+        x = 0;
+        canvasCtx.clearRect(0, 0, width, height);
 
-    function draw() {
-      requestAnimationFrame(draw.bind(this));
-      this.getFloatFrequencyData(dataArray);
+        canvasCtx.fillStyle = this.backgroundColor;
+        canvasCtx.fillRect(0, 0, width, height);
+        canvasCtx.beginPath();
 
-      canvasCtx.fillStyle = 'rgb(0, 0, 0)';
-      canvasCtx.fillRect(0, 0, width, height);
-
-      let bufferLength = dataArray.length;
-      let barWidth = (width / bufferLength) * 2.5;
-      let x = 0;
-      for(let i = 0; i < bufferLength; i++) {
-        if (dataArray[i] === 0) return;
-        let barHeight = (dataArray[i] + 140) * 2;
-
-        canvasCtx.fillStyle = 'rgb(' + Math.floor(barHeight + 100) + ', 50, 50)';
-        canvasCtx.fillRect(x, height - barHeight / 2, barWidth, barHeight / 2);
-
-        x += barWidth + 1;
+        canvasCtx.moveTo(x, y);
+      } else {
+        canvasCtx.lineTo(x, y);
       }
+
+      x += width / bufferLength;
+    }
+
+    canvasCtx.stroke();
+  }
+
+  renderFrequency(dataArray, canvasCtx) {
+    let { width, height, backgroundColor} = this;
+    let bufferLength = dataArray.length;
+
+    let barHeight;
+    let barWidth = width / bufferLength;
+    let x = 0;
+
+    canvasCtx.fillStyle = backgroundColor;
+    canvasCtx.fillRect(0, 0, width, height);
+
+    for(let i = 0; i < bufferLength; i++) {
+      barHeight = - dataArray[i] * 2;
+
+      canvasCtx.fillStyle = `rgb(${~~(255 - Math.pow(-barHeight / 10, 2))}, 50, 50)`;
+      canvasCtx.fillRect(x, height, barWidth, barHeight - height / 2);
+
+      x += barWidth + 1;
     }
   }
 }
-
-// new AudioDrawer(document.querySelector('canvas'));
-
-// exports = module.exports = AudioDrawer;
-
-// navigator.getUserMedia({audio: true}, function(stream) {
-//   var microphone = audioCtx.createMediaStreamSource(stream);
-//   var filter = audioCtx.createBiquadFilter();
-
-//   // microphone -> filter -> destination.
-//   microphone.connect(filter);
-//   filter.connect(audioCtx.destination);
-// }, errorCallback);
-
-// var localMediaStream = null;
-
-// function snapshot() {
-//   if (localMediaStream) {
-//     ctx.drawImage(video, 0, 0);
-//     // "image/webp" works in Chrome.
-//     // Other browsers will fall back to image/png.
-//     document.querySelector('img').src = canvas.toDataURL('image/webp');
-//   }
-// }
-
-// video.addEventListener('click', snapshot, false);
